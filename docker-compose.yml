@@ -1,0 +1,53 @@
+# Smart Home v1 — web frontend. Joins the backend stack's network (../smartHome) and binds to 127.0.0.1 only.
+#   cp .env.example .env              # set REVERB_APP_KEY to the backend's REVERB_APP_KEY
+#   docker compose up -d --build      # production build behind nginx  → http://localhost:5173
+#
+# Dev server with hot reload (stop `web` first, it uses the same port):
+#   docker compose stop web && docker compose --profile dev up dev
+#
+# Port 5173 is already in the backend's SANCTUM_STATEFUL_DOMAINS. If you change WEB_PORT/DEV_PORT,
+# add localhost:<port> there too, or sign-in fails with 400/401.
+
+name: smarthome-frontend
+
+services:
+  web:
+    build:
+      context: .
+      target: runtime
+    image: smarthome-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_PORT:-5173}:80"
+    environment:
+      BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-nginx:80}
+      REVERB_UPSTREAM: ${REVERB_UPSTREAM:-reverb:8080}
+      REVERB_APP_KEY: ${REVERB_APP_KEY:?set REVERB_APP_KEY in .env (same value as the backend)}
+    networks: [backend]
+
+  dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      target: dev
+    image: smarthome-frontend-dev
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - node_modules:/app/node_modules
+    environment:
+      BACKEND_URL: http://${BACKEND_UPSTREAM:-nginx:80}
+      REVERB_URL: http://${REVERB_UPSTREAM:-reverb:8080}
+      VITE_REVERB_APP_KEY: ${REVERB_APP_KEY:?set REVERB_APP_KEY in .env (same value as the backend)}
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "127.0.0.1:${DEV_PORT:-5173}:5173"
+    networks: [backend]
+
+networks:
+  backend:
+    external: true
+    name: ${BACKEND_NETWORK:-smarthome_default}
+
+volumes:
+  node_modules:
