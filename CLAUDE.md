@@ -103,8 +103,9 @@ Settings and the alarm editor are local state inside Device detail, not routes.
 - **Errors:** branch on `err.code` (`device_unreachable`, `device_unauthorized`, `device_rejected`,
   `invalid_pairing_code` + `data.attempts_left`, `pairing_locked` + `retryAfter`, `unsupported_device_type`) and on
   422 `err.errors`. Show user text via `describeError()`.
-- **Alarms:** the device is the source of truth. Writes are optimistic and roll back on error with an error toast
-  + Retry. `meta.stale` or an offline device → read-only with a tooltip. Max 10 alarms. `days` are ISO weekdays
+- **Alarms:** offline-first. The backend DB is the source of truth for user changes. A write to an unreachable
+  clock answers 202 and stays `sync_status: pending` until the clock is back. Writes are optimistic and roll back
+  on error with an error toast + Retry. Alarms stay editable when the device is offline or `meta.stale`. Max 10 alarms. `days` are ISO weekdays
   (1 = Mon), `[]` = one-shot. Time is `"HH:MM"` 24 h.
 - **Removing a device:** a 503 `device_unreachable` offers "Remove anyway" (`?force=1`).
 - **Device time** is rendered client-side from `useNow()` in the device tz (`state.tz` → `settings.tz`), not

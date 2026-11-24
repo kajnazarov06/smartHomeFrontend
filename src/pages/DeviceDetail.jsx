@@ -207,12 +207,8 @@ function AlarmsCard({ device }) {
   const toast = useToast();
   const [editor, setEditor] = useState(null); // null | { alarm? }
 
+  // Alarms are offline-first: changes are saved on the server and pushed when the clock is reachable.
   const stale = data?.stale;
-  const disabledReason = !device.online
-    ? "Clock is offline — alarms can't be changed"
-    : stale
-      ? "Clock didn't respond — showing the last known alarms"
-      : null;
 
   const toggle = (alarm, enabled) => {
     const run = () =>
@@ -245,14 +241,14 @@ function AlarmsCard({ device }) {
       <div className="alarms-head">
         <h2>Alarms</h2>
         {alarms.length > 0 && (
-          <span className="tip-wrap" tabIndex={disabledReason || full ? 0 : undefined}>
-            <Button variant="secondary" onClick={() => setEditor({})} disabled={!!disabledReason || full}>
+          <span className="tip-wrap" tabIndex={full ? 0 : undefined}>
+            <Button variant="secondary" onClick={() => setEditor({})} disabled={full}>
               <Plus size={18} aria-hidden="true" />
               Add alarm
             </Button>
-            {(disabledReason || full) && (
+            {full && (
               <span className="tooltip" role="tooltip">
-                {disabledReason || 'A clock can store at most 10 alarms'}
+                A clock can store at most 10 alarms
               </span>
             )}
           </span>
@@ -262,7 +258,7 @@ function AlarmsCard({ device }) {
       {stale && device.online && (
         <div className="stale-note">
           <CloudOff size={16} aria-hidden="true" />
-          Last known alarms — the clock didn&apos;t respond.
+          The clock didn&apos;t respond — changes will be sent when it&apos;s back.
           <button type="button" className="linkbtn" onClick={() => refetch()}>
             Retry
           </button>
@@ -287,17 +283,10 @@ function AlarmsCard({ device }) {
             <AlarmClock size={22} aria-hidden="true" />
           </span>
           <div style={{ fontSize: 15 }}>No alarms yet</div>
-          <span className="tip-wrap" tabIndex={disabledReason ? 0 : undefined}>
-            <Button variant="secondary" onClick={() => setEditor({})} disabled={!!disabledReason}>
-              <Plus size={18} aria-hidden="true" />
-              Add alarm
-            </Button>
-            {disabledReason && (
-              <span className="tooltip" role="tooltip">
-                {disabledReason}
-              </span>
-            )}
-          </span>
+          <Button variant="secondary" onClick={() => setEditor({})}>
+            <Plus size={18} aria-hidden="true" />
+            Add alarm
+          </Button>
         </div>
       ) : (
         <div>
@@ -305,7 +294,6 @@ function AlarmsCard({ device }) {
             <AlarmRow
               key={a.id}
               alarm={a}
-              disabledReason={disabledReason}
               onEdit={(alarm) => setEditor({ alarm })}
               onToggle={toggle}
               onDelete={remove}
