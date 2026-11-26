@@ -12,7 +12,7 @@ Browser ──▶ web (nginx :5173) ──/api, /sanctum, /up──▶ backend n
 - Design sources: the "Smart Home App — Frontend Design Brief (v1)" PDF and the Claude Design canvas
   https://claude.ai/artifact/Jv3qv67Kv3AA3QLBSxWka7 (boards: Sign in/up, Dashboard, Device detail, Add device,
   Alarm editor, Settings, States, Components, 390 px checks).
-- Language: **JavaScript (JSX), not TypeScript**. No test runner or linter is set up yet.
+- Language: **JavaScript (JSX), not TypeScript**. Tests: Vitest + React Testing Library (jsdom). No linter yet.
 
 ## Running it
 
@@ -29,7 +29,9 @@ docker compose stop web && docker compose --profile dev up dev   # Vite + HMR on
 | --- | --- |
 | `docker compose up -d --build` | Rebuild and restart `web` after code changes (prod image) |
 | `docker compose logs -f web` | nginx access/error log (proxy problems show here) |
-| `docker run --rm -v "$PWD":/app -w /app node:22-alpine npx vite build` | Compile check without the stack |
+| `make test` | Run the test suite once (`make test-file F=src/pages` for one file/folder, `make test-watch` to watch) |
+| `make build` | Compile check without the stack (`npx vite build` in Docker) |
+| `make check` | Tests + build |
 | `docker run --rm -v "$PWD":/app -w /app node:22-alpine npm install <pkg>` | Add a dependency (keeps `package-lock.json` in sync; the image uses `npm ci`) |
 
 Fake clock for testing without hardware: see `../smartHome/CLAUDE.md` ("Fake clock"). Add it by IP in the
@@ -137,9 +139,25 @@ Settings and the alarm editor are local state inside Device detail, not routes.
   only when the object carries them.
 - The bundle is split into `react`, `charts`, `realtime` chunks (`vite.config.js`). Recharts is the bulk of it.
 
+## Tests
+
+- Config is the `test` block in `vite.config.js`; setup in `src/test/setup.js`. Tests sit next to the code as
+  `*.test.js(x)`.
+- `src/test/utils.jsx`: `renderWithProviders(ui, {route, path, queryClient})` (QueryClient + MemoryRouter + Toast,
+  plus a `data-testid="location"` probe for navigation), `createTestQueryClient()` (no retries, `staleTime:
+  Infinity`, so seeded cache data is never refetched), `queryWrapper(qc)` for `renderHook`, `deferred()` for
+  optimistic states. `src/test/fixtures.js`: `makeDevice`, `makeAlarm`, `alarmsResponse`, `unreachableError`,
+  `validationError`.
+- Mock the API with `vi.mock('../api/endpoints')` (automock) and set per-test results with
+  `api.x.mockResolvedValue(...)`. Mocks reset between tests (`mockReset`). Set mocks **before** rendering when the
+  call happens on mount. Mock `../lib/echo` in anything that mounts `useRealtime`.
+- TanStack v5 passes `mutationFn` a second argument: assert hook-bound API calls with `mock.calls[0][0]`, not
+  `toHaveBeenCalledWith`.
+- `it.fails(...)` marks a known bug. When you fix it, the test starts failing: change it to `it(...)`.
+
 ## Before you finish a change
 
-1. `npx vite build` (in Docker, see above) compiles with no errors.
+1. `make check` passes: tests are green and `vite build` compiles with no errors.
 2. `docker compose up -d --build` and check the screen in a browser at 1440, 768 and 390 px, including its
    loading, empty, offline and error states. Check that the console has no errors.
 3. New backend route → add it to `api/endpoints.js` and wrap it in a hook. Don't call axios from components.

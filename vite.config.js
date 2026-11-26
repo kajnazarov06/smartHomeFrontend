@@ -11,6 +11,14 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    test: {
+      environment: 'jsdom',
+      setupFiles: ['./src/test/setup.js'],
+      include: ['src/**/*.test.{js,jsx}'],
+      css: false,
+      mockReset: true,
+      restoreMocks: true,
+    },
     build: {
       rollupOptions: {
         output: {
