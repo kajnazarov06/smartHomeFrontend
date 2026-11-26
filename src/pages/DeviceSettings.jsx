@@ -91,9 +91,10 @@ export function DeviceSettings({ device, onClose }) {
     <SidePanel
       title="Device settings"
       onClose={busy ? undefined : onClose}
+      cancelText="Cancel"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={busy}>
+          <Button variant="secondary" className="hide-m" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
           <Button variant="primary" style={{ minWidth: 96 }} loading={busy} onClick={save}>
@@ -160,7 +161,7 @@ export function DeviceSettings({ device, onClose }) {
       <section className="danger-zone" aria-labelledby="st-danger">
         <h2 id="st-danger">Danger zone</h2>
         <p>Removing the clock deletes its alarms and history from this app. You&apos;ll need to pair it again to use it.</p>
-        <Button variant="danger-outline" style={{ alignSelf: 'flex-start' }} onClick={() => setConfirming(true)}>
+        <Button variant="danger-outline" onClick={() => setConfirming(true)}>
           <Trash2 size={18} aria-hidden="true" />
           Remove device
         </Button>

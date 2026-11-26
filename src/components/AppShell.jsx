@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useMatch, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, LogOut, User } from 'lucide-react';
 import { useLogout, useUser } from '../hooks/useAuth';
@@ -20,18 +20,22 @@ export function AppShell() {
     },
   });
 
+  // Device detail has its own app bar on phones (back · name · settings), so the global bar steps aside there.
+  const detail = useMatch('/devices/:id');
+  const ownBar = !!detail && detail.params.id !== 'add';
+
   return (
     <>
-      <TopBar user={user} />
-      <ConnectionBanner />
+      <TopBar user={user} hideOnPhone={ownBar} />
+      <ConnectionBanner flush={ownBar} />
       <Outlet />
     </>
   );
 }
 
-function TopBar({ user }) {
+function TopBar({ user, hideOnPhone }) {
   return (
-    <header className="topbar">
+    <header className={`topbar ${hideOnPhone ? 'hide-m' : ''}`}>
       <div className="container">
         <Link to="/" className="brand">
           <span className="brand-mark">
@@ -71,12 +75,19 @@ function UserMenu({ user }) {
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <button type="button" className="usermenu-btn" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+      <button
+        type="button"
+        className="usermenu-btn"
+        aria-label="Account menu"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
         <span className="avatar">
           <User size={16} aria-hidden="true" />
         </span>
         <span className="who">Account</span>
-        <ChevronDown size={16} color="var(--text-2)" aria-hidden="true" />
+        <ChevronDown className="chev" size={16} color="var(--text-2)" aria-hidden="true" />
       </button>
       {open && (
         <div className="menu" role="menu">
@@ -104,11 +115,11 @@ function UserMenu({ user }) {
   );
 }
 
-export function ConnectionBanner() {
+export function ConnectionBanner({ flush = false }) {
   const { server } = useConnection();
   if (server) return null;
   return (
-    <div className="conn-banner" role="alert">
+    <div className={`conn-banner ${flush ? 'flush-m' : ''}`} role="alert">
       <span className="spinner" aria-hidden="true" />
       Can&apos;t reach the local server. Reconnecting…
     </div>

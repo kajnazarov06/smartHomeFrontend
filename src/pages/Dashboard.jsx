@@ -40,9 +40,9 @@ export function Dashboard() {
           )}
         </div>
         {(!devices || devices.length > 0) && (
-          <Link to="/devices/add" className="btn btn-primary">
+          <Link to="/devices/add" className="btn btn-primary add-btn">
             <Plus size={18} aria-hidden="true" />
-            Add device
+            <span className="add-btn-label">Add device</span>
           </Link>
         )}
       </div>

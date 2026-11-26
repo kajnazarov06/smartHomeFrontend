@@ -45,7 +45,23 @@ function useDialog(ref, onClose) {
   }, [ref]);
 }
 
-export function Modal({ title, onClose, children, footer, className = '', labelledBy }) {
+/** Close control: X everywhere; with `cancelText` phones show a text "Cancel" instead (bottom-sheet pattern). */
+function CloseButton({ onClose, cancelText }) {
+  return (
+    <>
+      <button type="button" className={`icon-btn subtle ${cancelText ? 'hide-m' : ''}`} aria-label="Close" onClick={onClose} disabled={!onClose}>
+        <X size={20} />
+      </button>
+      {cancelText && (
+        <button type="button" className="btn btn-quiet show-m" onClick={onClose} disabled={!onClose}>
+          {cancelText}
+        </button>
+      )}
+    </>
+  );
+}
+
+export function Modal({ title, onClose, children, footer, className = '', labelledBy, cancelText }) {
   const ref = useRef(null);
   const titleId = useId();
   useDialog(ref, onClose);
@@ -55,9 +71,7 @@ export function Modal({ title, onClose, children, footer, className = '', labell
         {title != null && (
           <div className="modal-head">
             <h2 id={titleId}>{title}</h2>
-            <button type="button" className="icon-btn subtle" aria-label="Close" onClick={onClose}>
-              <X size={20} />
-            </button>
+            <CloseButton onClose={onClose} cancelText={cancelText} />
           </div>
         )}
         {children}
@@ -68,7 +82,7 @@ export function Modal({ title, onClose, children, footer, className = '', labell
   );
 }
 
-export function SidePanel({ title, onClose, children, footer }) {
+export function SidePanel({ title, onClose, children, footer, cancelText }) {
   const ref = useRef(null);
   const titleId = useId();
   useDialog(ref, onClose);
@@ -77,9 +91,7 @@ export function SidePanel({ title, onClose, children, footer }) {
       <aside ref={ref} className="panel" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <div className="panel-head">
           <h1 id={titleId}>{title}</h1>
-          <button type="button" className="icon-btn subtle" aria-label="Close" onClick={onClose}>
-            <X size={20} />
-          </button>
+          <CloseButton onClose={onClose} cancelText={cancelText} />
         </div>
         <div className="panel-body">{children}</div>
         {footer && <div className="panel-foot">{footer}</div>}

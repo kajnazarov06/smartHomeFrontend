@@ -9,55 +9,152 @@ export function AlarmRow({ alarm, onEdit, onToggle, onDelete, disabledReason }) 
   const days = new Set(alarm.days ?? []);
   const locked = !!disabledReason;
   const label = alarm.label || (days.size ? describeDays(alarm.days) : 'Once');
+  const swipe = useSwipeReveal(!locked && !alarm.pending);
 
   return (
-    <div className={`arow ${alarm.enabled ? '' : 'off'} ${alarm.pending ? 'pending' : ''}`}>
+    <div className={`arow ${alarm.enabled ? '' : 'off'} ${alarm.pending ? 'pending' : ''} ${swipe.open ? 'swiped' : ''}`}>
       <button
         type="button"
-        className="alink"
-        onClick={() => onEdit(alarm)}
-        disabled={locked}
-        aria-label={`Edit alarm ${alarm.time}, ${label}, ${describeDays(alarm.days)}`}
+        className="arow-del"
+        tabIndex={swipe.open ? 0 : -1}
+        aria-hidden={!swipe.open}
+        onClick={() => {
+          swipe.close();
+          onDelete(alarm);
+        }}
       >
-        <span className="t num">{alarm.time}</span>
-        <span className="meta">
-          <span className="lbl">{label}</span>
-          <span className="daylets" aria-hidden="true">
-            {DAY_LETTERS.map((l, i) => (
-              <span key={i} className={days.has(i + 1) ? 'on' : ''}>
-                {l}
-              </span>
-            ))}
-          </span>
-        </span>
+        <Trash2 size={18} aria-hidden="true" />
+        Delete
       </button>
-
-      <span className="tip-wrap" tabIndex={locked ? 0 : undefined}>
-        <Toggle
-          checked={alarm.enabled}
-          onChange={(v) => onToggle(alarm, v)}
-          disabled={locked || alarm.pending}
-          label={`Alarm ${alarm.time} ${alarm.enabled ? 'on' : 'off'}`}
-        />
-        {locked && (
-          <span className="tooltip" role="tooltip">
-            {disabledReason}
+      <div className="arow-inner" ref={swipe.ref} {...swipe.handlers} style={swipe.style}>
+        <button
+          type="button"
+          className="alink"
+          onClick={() => onEdit(alarm)}
+          disabled={locked}
+          aria-label={`Edit alarm ${alarm.time}, ${label}, ${describeDays(alarm.days)}`}
+        >
+          <span className="t num">{alarm.time}</span>
+          <span className="meta">
+            <span className="lbl">{label}</span>
+            <span className="daylets" aria-hidden="true">
+              {DAY_LETTERS.map((l, i) => (
+                <span key={i} className={days.has(i + 1) ? 'on' : ''}>
+                  {l}
+                </span>
+              ))}
+            </span>
           </span>
-        )}
-      </span>
+        </button>
 
-      <RowMenu
-        open={menuOpen}
-        setOpen={setMenuOpen}
-        label={`More options for alarm ${alarm.time}`}
-        disabled={locked || alarm.pending}
-        items={[
-          { label: 'Edit', icon: Pencil, onSelect: () => onEdit(alarm) },
-          { label: 'Delete', icon: Trash2, danger: true, onSelect: () => onDelete(alarm) },
-        ]}
-      />
+        <span className="tip-wrap" tabIndex={locked ? 0 : undefined}>
+          <Toggle
+            checked={alarm.enabled}
+            onChange={(v) => onToggle(alarm, v)}
+            disabled={locked || alarm.pending}
+            label={`Alarm ${alarm.time} ${alarm.enabled ? 'on' : 'off'}`}
+          />
+          {locked && (
+            <span className="tooltip" role="tooltip">
+              {disabledReason}
+            </span>
+          )}
+        </span>
+
+        <RowMenu
+          open={menuOpen}
+          setOpen={setMenuOpen}
+          label={`More options for alarm ${alarm.time}`}
+          disabled={locked || alarm.pending}
+          items={[
+            { label: 'Edit', icon: Pencil, onSelect: () => onEdit(alarm) },
+            { label: 'Delete', icon: Trash2, danger: true, onSelect: () => onDelete(alarm) },
+          ]}
+        />
+      </div>
     </div>
   );
+}
+
+const REVEAL = 96; // px the row slides to show its Delete button
+
+/**
+ * Touch-only swipe-left-to-reveal (phones). Vertical scrolling stays native (`touch-action: pan-y`).
+ * While open, a tap on the row closes it instead of editing.
+ */
+function useSwipeReveal(enabled) {
+  const [open, setOpen] = useState(false);
+  const [dx, setDx] = useState(null); // live offset while dragging, null when idle
+  const ref = useRef(null);
+  const g = useRef(null);
+
+  useEffect(() => {
+    if (!enabled) setOpen(false);
+  }, [enabled]);
+
+  // Tap anywhere else closes an open row.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => !ref.current?.parentElement?.contains(e.target) && setOpen(false);
+    document.addEventListener('touchstart', onDown, { passive: true });
+    document.addEventListener('mousedown', onDown);
+    return () => {
+      document.removeEventListener('touchstart', onDown);
+      document.removeEventListener('mousedown', onDown);
+    };
+  }, [open]);
+
+  const handlers = {
+    onTouchStart: (e) => {
+      if (!enabled || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      g.current = { x: t.clientX, y: t.clientY, base: open ? -REVEAL : 0, axis: null };
+    },
+    onTouchMove: (e) => {
+      const s = g.current;
+      if (!s) return;
+      const t = e.touches[0];
+      const mx = t.clientX - s.x;
+      const my = t.clientY - s.y;
+      if (!s.axis && Math.hypot(mx, my) > 8) s.axis = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
+      if (s.axis === 'x') setDx(Math.max(-REVEAL - 24, Math.min(0, s.base + mx)));
+    },
+    onTouchEnd: () => {
+      const s = g.current;
+      g.current = null;
+      if (s?.axis === 'x' && dx != null) {
+        setOpen(dx < -REVEAL / 2);
+        // Suppress the click a touch sequence may still fire on the row.
+        ref.current?.addEventListener('click', stop, { capture: true, once: true });
+        setTimeout(() => ref.current?.removeEventListener('click', stop, { capture: true }), 400);
+      }
+      setDx(null);
+    },
+    onTouchCancel: () => {
+      g.current = null;
+      setDx(null);
+    },
+    onClickCapture: (e) => {
+      if (open) {
+        stop(e);
+        setOpen(false);
+      }
+    },
+  };
+
+  const offset = dx ?? (open ? -REVEAL : 0);
+  return {
+    open,
+    ref,
+    handlers,
+    close: () => setOpen(false),
+    style: offset ? { transform: `translateX(${offset}px)`, transition: dx == null ? undefined : 'none' } : undefined,
+  };
+}
+
+function stop(e) {
+  e.preventDefault();
+  e.stopPropagation();
 }
 
 function RowMenu({ open, setOpen, label, items, disabled }) {

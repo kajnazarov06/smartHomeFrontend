@@ -60,16 +60,17 @@ export function AlarmEditor({ deviceId, alarm, defaultSnooze, onClose }) {
     <Modal
       title={editing ? 'Edit alarm' : 'New alarm'}
       onClose={saving ? undefined : onClose}
+      cancelText="Cancel"
       footer={
         <>
           {editing && (
             <Button variant="danger-text" onClick={remove} disabled={saving}>
               <Trash2 size={18} aria-hidden="true" />
-              Delete
+              Delete alarm
             </Button>
           )}
           <span className="spacer" />
-          <Button variant="secondary" onClick={onClose} disabled={saving}>
+          <Button variant="secondary" className="hide-m" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
           <Button variant="primary" style={{ minWidth: 96 }} loading={saving} onClick={save}>

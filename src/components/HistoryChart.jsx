@@ -169,6 +169,7 @@ export function HistoryChart({ points, range, onRangeChange, loading, showTemp =
           </ResponsiveContainer>
         )}
       </div>
+      {!empty && points && <p className="chart-hint show-m">Tap the chart to see values.</p>}
     </section>
   );
 }

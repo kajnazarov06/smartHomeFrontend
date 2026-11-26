@@ -51,7 +51,7 @@ export function AddDevice() {
   const stepIndex = { find: 0, pair: 1, name: 2, done: 3 }[step];
 
   return (
-    <Modal title="Add device" onClose={close}>
+    <Modal title="Add device" onClose={close} className="sheet-full">
       {step !== 'done' && <Stepper current={stepIndex} />}
       <div className="modal-body" style={{ paddingTop: 28 }}>
         {step === 'find' && <FindStep onPick={startPairing} starting={starting} error={findError} setError={setFindError} />}
@@ -269,7 +269,7 @@ function FindStep({ onPick, starting, error, setError }) {
             <li>Does the clock show the connected icon?</li>
             <li>Restart the clock and wait 30 seconds.</li>
           </ul>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="step-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Button variant="primary" onClick={scan}>
               Scan again
             </Button>
@@ -464,7 +464,7 @@ function PairStep({ target, pairing, setPairing, onRestart, restarting, onBack, 
         </>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+      <div className="step-actions" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
         <Button variant="secondary" onClick={onBack} disabled={verifying}>
           Back
         </Button>
@@ -521,7 +521,7 @@ function NameStep({ device, onDone }) {
         data-autofocus
         autoFocus
       />
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, paddingTop: 4 }}>
+      <div className="step-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, paddingTop: 4 }}>
         <Button type="submit" variant="primary" loading={saving}>
           Finish
         </Button>

@@ -92,7 +92,8 @@ export function formatCountdown(seconds) {
 /** next_alarm may be "06:30" or {time, days, label} depending on the firmware. */
 export function describeNextAlarm(next) {
   if (!next) return null;
-  if (typeof next === 'string') return { time: next.slice(0, 5), days: null };
+  // "HH:MM", or an ISO datetime such as "2026-11-25T07:00:00": take the first HH:MM either way.
+  if (typeof next === 'string') return { time: next.match(/\d{2}:\d{2}/)?.[0] ?? next.slice(0, 5), days: null };
   if (typeof next === 'object' && next.time) {
     return { time: String(next.time).slice(0, 5), days: Array.isArray(next.days) ? describeDays(next.days) : null };
   }

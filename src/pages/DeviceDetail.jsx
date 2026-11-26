@@ -165,6 +165,7 @@ function DetailHeader({ device, onOpenSettings }) {
           <IconButton
             label="Rename device"
             subtle
+            className="hide-m"
             style={{ width: 36, height: 36 }}
             onClick={() => {
               setName(device.name);
@@ -176,7 +177,7 @@ function DetailHeader({ device, onOpenSettings }) {
         </>
       )}
       <StatusBadge status={device.online ? 'online' : 'offline'} />
-      <span style={{ flex: 1 }} />
+      <span className="head-spacer" />
       <IconButton label="Device settings" onClick={onOpenSettings}>
         <Settings size={20} />
       </IconButton>
@@ -244,7 +245,7 @@ function AlarmsCard({ device }) {
           <span className="tip-wrap" tabIndex={full ? 0 : undefined}>
             <Button variant="secondary" onClick={() => setEditor({})} disabled={full}>
               <Plus size={18} aria-hidden="true" />
-              Add alarm
+              Add<span className="hide-m">&nbsp;alarm</span>
             </Button>
             {full && (
               <span className="tooltip" role="tooltip">
@@ -299,6 +300,7 @@ function AlarmsCard({ device }) {
               onDelete={remove}
             />
           ))}
+          <p className="swipe-hint">Swipe an alarm left to delete it.</p>
         </div>
       )}
 

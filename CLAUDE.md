@@ -45,7 +45,8 @@ Add device flow; its pairing code is printed in `docker logs fake-clock`.
   image works with any key. `public/env.js` is the dev stub. In dev the key comes from `VITE_REVERB_APP_KEY`.
 - The Vite dev proxy (`vite.config.js`) mirrors the nginx routes. Targets come from `BACKEND_URL` / `REVERB_URL`
   (defaults: `localhost:8080` / `localhost:8081` for running Vite on the host).
-- All ports bind to `127.0.0.1`.
+- Ports bind to `127.0.0.1` unless `.env` sets `BIND_ADDR=0.0.0.0` (to test on a phone at
+  `http://<mac-ip>:5173`). That origin must also be in the backend's `SANCTUM_STATEFUL_DOMAINS`.
 
 ## Auth and same-origin rules (easy to break)
 
@@ -132,7 +133,7 @@ Settings and the alarm editor are local state inside Device detail, not routes.
   `PUT /devices/{id}/settings`. The backend creates the device on confirm, so Add device step 2 pairs and step 3
   renames (`PATCH /devices/{id}`).
 - The room picker from the brief is not built: the backend has no room field.
-- `next_alarm` from the device may be `"HH:MM"` or an object. `describeNextAlarm` handles both. Days are shown
+- `next_alarm` may be `"HH:MM"`, an ISO datetime (what `/api/devices` sends today) or an object. `describeNextAlarm` handles all three. Days are shown
   only when the object carries them.
 - The bundle is split into `react`, `charts`, `realtime` chunks (`vite.config.js`). Recharts is the bulk of it.
 
