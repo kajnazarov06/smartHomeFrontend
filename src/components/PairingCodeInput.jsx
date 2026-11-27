@@ -53,7 +53,9 @@ export const PairingCodeInput = forwardRef(function PairingCodeInput(
           onChange={(e) => {
             const v = e.target.value.replace(/\D/g, '');
             if (v.length > 1) return fill(v, i); // autofill / mobile paste
-            const target = Math.min(i, digits.findIndex((x) => !x) === -1 ? 5 : digits.findIndex((x) => !x));
+            // Typing into a box past the first empty one fills the first empty one.
+            const firstEmpty = digits.findIndex((x) => !x);
+            const target = Math.min(i, firstEmpty === -1 ? 5 : firstEmpty);
             setAt(target, v);
             if (v) inputs.current[Math.min(target + 1, 5)]?.focus();
           }}

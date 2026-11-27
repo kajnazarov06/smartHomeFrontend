@@ -111,8 +111,7 @@ describe('DeviceDetail — rename', () => {
     expect(api.renameDevice).toHaveBeenCalledTimes(2);
   });
 
-  // Known bug (DRY/KISS review #3): the Retry calls rename.mutate() without the toast callbacks.
-  it.fails('confirms a successful retry with a toast', async () => {
+  it('confirms a successful retry with a toast', async () => {
     setup();
     api.renameDevice.mockRejectedValueOnce(unreachableError());
     await rename('Office');
@@ -204,8 +203,7 @@ describe('DeviceDetail — alarms', () => {
     await waitFor(() => expect(screen.queryByText('07:00')).not.toBeInTheDocument());
   });
 
-  // Known bug: AlarmEditor closes (unmounts) before mutate() settles, so its toast callbacks never run.
-  it.fails('confirms a delete from the editor with a toast', async () => {
+  it('confirms a delete from the editor with a toast', async () => {
     setup();
     api.deleteAlarm.mockResolvedValue({});
     await userEvent.click(await screen.findByRole('button', { name: /^Edit alarm 07:00/ }));

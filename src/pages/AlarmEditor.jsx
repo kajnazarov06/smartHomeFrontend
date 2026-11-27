@@ -1,59 +1,41 @@
 import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import { useCreateAlarm, useDeleteAlarm, useUpdateAlarm } from '../hooks/useAlarms';
-import { describeError } from '../api/client';
+import { useCreateAlarm, useUpdateAlarm } from '../hooks/useAlarms';
 import { describeDays, pad2 } from '../lib/format';
 import { Modal } from '../components/Modal';
-import { DayPicker, TimePicker } from '../components/alarms';
-import { Button, SelectField, TextField } from '../components/ui';
-import { useToast } from '../components/Toast';
+import { DEFAULT_SNOOZE, DayPicker, SnoozeSelect, TimePicker } from '../components/alarms';
+import { Button, TextField } from '../components/ui';
+import { useToastMutate } from '../components/Toast';
 
-const SNOOZE = [5, 10, 15];
-
-export function AlarmEditor({ deviceId, alarm, defaultSnooze, onClose }) {
+/** `onDelete(alarm)` is run by the parent, which stays mounted after the editor closes. */
+export function AlarmEditor({ deviceId, alarm, defaultSnooze, onDelete, onClose }) {
   const editing = !!alarm;
   const [h0, m0] = (alarm?.time ?? '07:00').split(':').map(Number);
   const [hour, setHour] = useState(h0);
   const [minute, setMinute] = useState(m0);
   const [days, setDays] = useState(alarm?.days ?? [1, 2, 3, 4, 5]);
   const [label, setLabel] = useState(alarm?.label ?? '');
-  const [snooze, setSnooze] = useState(alarm?.snooze_min ?? defaultSnooze ?? 10);
+  const [snooze, setSnooze] = useState(Number(alarm?.snooze_min ?? defaultSnooze ?? DEFAULT_SNOOZE));
 
   const create = useCreateAlarm(deviceId);
   const update = useUpdateAlarm(deviceId);
-  const del = useDeleteAlarm(deviceId);
-  const toast = useToast();
+  const run = useToastMutate();
   const saving = create.isPending || update.isPending;
 
   const time = `${pad2(hour)}:${pad2(minute)}`;
   const summary = `${time} · ${days.length === 0 ? 'Rings once' : describeDays(days)}`;
-  const snoozeOptions = SNOOZE.includes(Number(snooze)) ? SNOOZE : [...SNOOZE, Number(snooze)].sort((a, b) => a - b);
 
   const save = (e) => {
     e?.preventDefault();
-    const body = { time, days, label: label.trim() || null, snooze_min: Number(snooze) };
-    const opts = {
-      onSuccess: () => {
-        toast.success('Alarm saved');
-        onClose();
-      },
-      onError: (err) => toast.error(`Couldn't save alarm — ${describeError(err)}`, { retry: () => save() }),
-    };
-    if (editing) update.mutate({ id: alarm.id, patch: body }, opts);
-    else create.mutate({ alarm: { ...body, enabled: true } }, opts);
+    const body = { time, days, label: label.trim() || null, snooze_min: snooze };
+    const opts = { action: 'save alarm', success: 'Alarm saved', onSuccess: onClose };
+    if (editing) run(update, { id: alarm.id, patch: body }, opts);
+    else run(create, { alarm: { ...body, enabled: true } }, opts);
   };
 
   const remove = () => {
     onClose();
-    const run = () =>
-      del.mutate(
-        { id: alarm.id },
-        {
-          onSuccess: () => toast.success('Alarm deleted'),
-          onError: (err) => toast.error(`Couldn't delete alarm — ${describeError(err)}`, { retry: run }),
-        },
-      );
-    run();
+    onDelete(alarm);
   };
 
   return (
@@ -103,13 +85,7 @@ export function AlarmEditor({ deviceId, alarm, defaultSnooze, onClose }) {
 
         <div className="label-row">
           <TextField label="Label" value={label} maxLength={32} placeholder="Alarm" onChange={(e) => setLabel(e.target.value)} />
-          <SelectField label="Snooze" value={snooze} onChange={(e) => setSnooze(Number(e.target.value))}>
-            {snoozeOptions.map((m) => (
-              <option key={m} value={m}>
-                {m} min
-              </option>
-            ))}
-          </SelectField>
+          <SnoozeSelect label="Snooze" value={snooze} onChange={setSnooze} />
         </div>
         <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
       </form>

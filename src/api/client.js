@@ -88,6 +88,11 @@ function defaultMessage(status) {
   return 'Something went wrong';
 }
 
+/** Laravel 422 `errors` → `{field: first message}`; `{}` for any other error. */
+export function fieldErrors(err) {
+  return Object.fromEntries(Object.entries(err?.errors ?? {}).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]));
+}
+
 /** Human message for a device/backend error, tuned for the codes the backend returns. */
 export function describeError(err, fallback = 'Something went wrong') {
   if (!err) return fallback;

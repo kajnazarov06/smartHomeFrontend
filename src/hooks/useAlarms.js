@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/endpoints';
+import { qk } from './keys';
 
-const key = (deviceId) => ['alarms', deviceId];
+/** A clock stores at most this many alarms. */
+export const MAX_ALARMS = 10;
+
 const sortAlarms = (list) => [...list].sort((a, b) => String(a.time).localeCompare(String(b.time)));
 
 /** `{ alarms, stale }` — stale means the device was unreachable and this is the last known list. */
 export function useAlarms(deviceId) {
   return useQuery({
-    queryKey: key(deviceId),
+    queryKey: qk.alarms(deviceId),
     queryFn: () => api.alarms(deviceId),
     enabled: !!deviceId,
     select: (res) => ({ alarms: sortAlarms(res?.data ?? []), stale: !!res?.meta?.stale }),
@@ -23,19 +26,19 @@ function useOptimistic(deviceId, mutationFn, apply, settle) {
   return useMutation({
     mutationFn,
     onMutate: async (vars) => {
-      await qc.cancelQueries({ queryKey: key(deviceId) });
-      const prev = qc.getQueryData(key(deviceId));
-      qc.setQueryData(key(deviceId), (res) => res && { ...res, data: apply(res.data ?? [], vars) });
+      await qc.cancelQueries({ queryKey: qk.alarms(deviceId) });
+      const prev = qc.getQueryData(qk.alarms(deviceId));
+      qc.setQueryData(qk.alarms(deviceId), (res) => res && { ...res, data: apply(res.data ?? [], vars) });
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) qc.setQueryData(key(deviceId), ctx.prev);
+      if (ctx?.prev) qc.setQueryData(qk.alarms(deviceId), ctx.prev);
     },
     onSuccess: (result, vars) => {
-      if (settle) qc.setQueryData(key(deviceId), (res) => res && { ...res, data: settle(res.data ?? [], result, vars) });
+      if (settle) qc.setQueryData(qk.alarms(deviceId), (res) => res && { ...res, data: settle(res.data ?? [], result, vars) });
       // next_alarm on the device card changes with the alarm list.
-      qc.invalidateQueries({ queryKey: ['device', deviceId] });
-      qc.invalidateQueries({ queryKey: ['devices'] });
+      qc.invalidateQueries({ queryKey: qk.device(deviceId) });
+      qc.invalidateQueries({ queryKey: qk.devices });
     },
   });
 }

@@ -2,16 +2,17 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { AlarmClock, ArrowLeft, Check, CloudOff, Pencil, Plus, Settings, X } from 'lucide-react';
 import { useDevice, useRenameDevice } from '../hooks/useDevices';
-import { useAlarms, useDeleteAlarm, useUpdateAlarm } from '../hooks/useAlarms';
+import { MAX_ALARMS, useAlarms, useDeleteAlarm, useUpdateAlarm } from '../hooks/useAlarms';
 import { useReadings } from '../hooks/useReadings';
 import { useNow } from '../lib/useNow';
 import { deviceTz, timeAgo } from '../lib/format';
+import { DEVICE_NAME_MAX } from '../lib/deviceName';
 import { describeError } from '../api/client';
-import { ClockDisplay, SensorTile, hasCap, sensorsOf } from '../components/device';
+import { ClockDisplay, SensorTile, hasCap, sensorValue, sensorsOf } from '../components/device';
 import { HistoryChart, HistoryChartSkeleton } from '../components/HistoryChart';
 import { AlarmRow } from '../components/alarms';
 import { Button, IconButton, Skeleton, StatusBadge } from '../components/ui';
-import { useToast } from '../components/Toast';
+import { useToastMutate } from '../components/Toast';
 import { AlarmEditor } from './AlarmEditor';
 import { DeviceSettings } from './DeviceSettings';
 
@@ -54,7 +55,7 @@ export function DeviceDetail() {
           {sensors.length > 0 && (
             <div className={`sensors ${online ? '' : 'dimmed'}`}>
               {sensors.map((k) => (
-                <SensorTile key={k} kind={k} size="lg" value={device.state?.[k === 'temperature' ? 'temperature_c' : 'humidity_pct']} />
+                <SensorTile key={k} kind={k} size="lg" value={sensorValue(device, k)} />
               ))}
             </div>
           )}
@@ -108,17 +109,14 @@ function DetailHeader({ device, onOpenSettings }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(device.name);
   const rename = useRenameDevice(device.id);
-  const toast = useToast();
+  const run = useToastMutate();
 
   const save = (e) => {
     e.preventDefault();
     const trimmed = name.trim();
     setEditing(false);
     if (!trimmed || trimmed === device.name) return;
-    rename.mutate(trimmed, {
-      onSuccess: () => toast.success('Name saved'),
-      onError: (err) => toast.error(`Couldn't rename — ${describeError(err)}`, { retry: () => rename.mutate(trimmed) }),
-    });
+    run(rename, trimmed, { action: 'rename', success: 'Name saved' });
   };
 
   return (
@@ -135,7 +133,7 @@ function DetailHeader({ device, onOpenSettings }) {
             id="rename"
             className="input"
             value={name}
-            maxLength={64}
+            maxLength={DEVICE_NAME_MAX}
             autoFocus
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
@@ -194,7 +192,6 @@ function History({ deviceId, sensors }) {
       points={data}
       range={range}
       onRangeChange={setRange}
-      loading={isPending}
       showTemp={sensors.includes('temperature')}
       showHum={sensors.includes('humidity')}
     />
@@ -205,37 +202,20 @@ function AlarmsCard({ device }) {
   const { data, isPending, isError, error, refetch } = useAlarms(device.id);
   const update = useUpdateAlarm(device.id);
   const del = useDeleteAlarm(device.id);
-  const toast = useToast();
+  const run = useToastMutate();
   const [editor, setEditor] = useState(null); // null | { alarm? }
 
   // Alarms are offline-first: changes are saved on the server and pushed when the clock is reachable.
   const stale = data?.stale;
 
-  const toggle = (alarm, enabled) => {
-    const run = () =>
-      update.mutate(
-        { id: alarm.id, patch: { enabled } },
-        {
-          onError: (err) => toast.error(`Couldn't ${enabled ? 'turn on' : 'turn off'} alarm — ${describeError(err)}`, { retry: run }),
-        },
-      );
-    run();
-  };
+  const toggle = (alarm, enabled) =>
+    run(update, { id: alarm.id, patch: { enabled } }, { action: `${enabled ? 'turn on' : 'turn off'} alarm` });
 
-  const remove = (alarm) => {
-    const run = () =>
-      del.mutate(
-        { id: alarm.id },
-        {
-          onSuccess: () => toast.success('Alarm deleted'),
-          onError: (err) => toast.error(`Couldn't delete alarm — ${describeError(err)}`, { retry: run }),
-        },
-      );
-    run();
-  };
+  // Lives here, not in the editor: the editor closes before the request settles.
+  const remove = (alarm) => run(del, { id: alarm.id }, { action: 'delete alarm', success: 'Alarm deleted' });
 
   const alarms = data?.alarms ?? [];
-  const full = alarms.length >= 10;
+  const full = alarms.length >= MAX_ALARMS;
 
   return (
     <section className="card alarms-card" aria-label="Alarms">
@@ -249,7 +229,7 @@ function AlarmsCard({ device }) {
             </Button>
             {full && (
               <span className="tooltip" role="tooltip">
-                A clock can store at most 10 alarms
+                A clock can store at most {MAX_ALARMS} alarms
               </span>
             )}
           </span>
@@ -309,6 +289,7 @@ function AlarmsCard({ device }) {
           deviceId={device.id}
           alarm={editor.alarm}
           defaultSnooze={device.settings?.snooze_min}
+          onDelete={remove}
           onClose={() => setEditor(null)}
         />
       )}

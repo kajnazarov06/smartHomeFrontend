@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 import { AlarmClock, Droplet, Thermometer } from 'lucide-react';
 import { useNow } from '../lib/useNow';
 import {
-  describeDays,
   describeNextAlarm,
   deviceTz,
   formatClock,
@@ -25,8 +24,8 @@ export function ClockDisplay({ tz, size = 'card', showDate = false }) {
 }
 
 const SENSORS = {
-  temperature: { icon: Thermometer, label: 'Temperature', unit: '°C', cls: 'c-temp', digits: 1, key: 'temperature_c' },
-  humidity: { icon: Droplet, label: 'Humidity', unit: '%', cls: 'c-hum', digits: 0, key: 'humidity_pct' },
+  temperature: { icon: Thermometer, label: 'Temperature', unit: '°C', spoken: 'degrees', cls: 'c-temp', digits: 1, key: 'temperature_c' },
+  humidity: { icon: Droplet, label: 'Humidity', unit: '%', spoken: 'percent humidity', cls: 'c-hum', digits: 0, key: 'humidity_pct' },
 };
 
 /** kind: temperature | humidity; size: sm (card) | lg (detail). */
@@ -65,6 +64,11 @@ export function sensorsOf(device) {
   );
 }
 
+/** Current value of a sensor (`temperature` | `humidity`) from the device state. */
+export function sensorValue(device, kind) {
+  return device?.state?.[SENSORS[kind].key];
+}
+
 export function hasCap(device, cap) {
   const caps = device?.capabilities ?? [];
   return caps.length === 0 ? cap === 'clock' || cap === 'alarm' : caps.includes(cap);
@@ -83,8 +87,10 @@ export function DeviceCard({ device, highlighted = false }) {
     device.name,
     online ? 'online' : `offline, last seen ${timeAgo(device.last_seen_at, now)}`,
     hasCap(device, 'clock') ? formatClock(now, tz) : null,
-    state.temperature_c != null ? `${formatNumber(state.temperature_c, 1)} degrees` : null,
-    state.humidity_pct != null ? `${formatNumber(state.humidity_pct)} percent humidity` : null,
+    ...sensors.map((k) => {
+      const v = sensorValue(device, k);
+      return v == null ? null : `${formatNumber(v, SENSORS[k].digits)} ${SENSORS[k].spoken}`;
+    }),
     next ? `next alarm ${next.time}` : null,
   ]
     .filter(Boolean)
@@ -107,7 +113,7 @@ export function DeviceCard({ device, highlighted = false }) {
         {sensors.length > 0 && (
           <div className="sensors">
             {sensors.map((k) => (
-              <SensorTile key={k} kind={k} value={state[SENSORS[k].key]} />
+              <SensorTile key={k} kind={k} value={sensorValue(device, k)} />
             ))}
           </div>
         )}
@@ -153,4 +159,12 @@ export function DeviceCardSkeleton() {
   );
 }
 
-export { describeDays };
+export function DeviceGridSkeleton() {
+  return (
+    <div className="grid" aria-busy="true">
+      <DeviceCardSkeleton />
+      <DeviceCardSkeleton />
+      <DeviceCardSkeleton />
+    </div>
+  );
+}

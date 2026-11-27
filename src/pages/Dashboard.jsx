@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useDevices } from '../hooks/useDevices';
-import { DeviceCard, DeviceCardSkeleton } from '../components/device';
+import { DeviceCard, DeviceGridSkeleton } from '../components/device';
 import { Button } from '../components/ui';
 import { describeError } from '../api/client';
 
@@ -48,11 +48,7 @@ export function Dashboard() {
       </div>
 
       {isPending ? (
-        <div className="grid" aria-busy="true">
-          <DeviceCardSkeleton />
-          <DeviceCardSkeleton />
-          <DeviceCardSkeleton />
-        </div>
+        <DeviceGridSkeleton />
       ) : isError && !devices ? (
         <div className="card empty">
           <div>

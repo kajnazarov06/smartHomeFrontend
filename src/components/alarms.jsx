@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { DAY_LETTERS, DAY_NAMES, describeDays, pad2 } from '../lib/format';
-import { Toggle } from './ui';
+import { useDismiss } from '../lib/useDismiss';
+import { SelectField, Toggle } from './ui';
 
-/** Row: time, label, day letters, toggle, menu. `disabledReason` disables editing with a tooltip. */
-export function AlarmRow({ alarm, onEdit, onToggle, onDelete, disabledReason }) {
+/** Row: time, label, day letters, toggle, menu. Swipe left on phones to reveal Delete. */
+export function AlarmRow({ alarm, onEdit, onToggle, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const days = new Set(alarm.days ?? []);
-  const locked = !!disabledReason;
   const label = alarm.label || (days.size ? describeDays(alarm.days) : 'Once');
-  const swipe = useSwipeReveal(!locked && !alarm.pending);
+  const swipe = useSwipeReveal(!alarm.pending);
 
   return (
-    <div className={`arow ${alarm.enabled ? '' : 'off'} ${alarm.pending ? 'pending' : ''} ${swipe.open ? 'swiped' : ''}`}>
+    <div ref={swipe.rowRef} className={`arow ${alarm.enabled ? '' : 'off'} ${alarm.pending ? 'pending' : ''} ${swipe.open ? 'swiped' : ''}`}>
       <button
         type="button"
         className="arow-del"
@@ -31,7 +31,6 @@ export function AlarmRow({ alarm, onEdit, onToggle, onDelete, disabledReason }) 
           type="button"
           className="alink"
           onClick={() => onEdit(alarm)}
-          disabled={locked}
           aria-label={`Edit alarm ${alarm.time}, ${label}, ${describeDays(alarm.days)}`}
         >
           <span className="t num">{alarm.time}</span>
@@ -47,25 +46,18 @@ export function AlarmRow({ alarm, onEdit, onToggle, onDelete, disabledReason }) 
           </span>
         </button>
 
-        <span className="tip-wrap" tabIndex={locked ? 0 : undefined}>
-          <Toggle
-            checked={alarm.enabled}
-            onChange={(v) => onToggle(alarm, v)}
-            disabled={locked || alarm.pending}
-            label={`Alarm ${alarm.time} ${alarm.enabled ? 'on' : 'off'}`}
-          />
-          {locked && (
-            <span className="tooltip" role="tooltip">
-              {disabledReason}
-            </span>
-          )}
-        </span>
+        <Toggle
+          checked={alarm.enabled}
+          onChange={(v) => onToggle(alarm, v)}
+          disabled={alarm.pending}
+          label={`Alarm ${alarm.time} ${alarm.enabled ? 'on' : 'off'}`}
+        />
 
         <RowMenu
           open={menuOpen}
           setOpen={setMenuOpen}
           label={`More options for alarm ${alarm.time}`}
-          disabled={locked || alarm.pending}
+          disabled={alarm.pending}
           items={[
             { label: 'Edit', icon: Pencil, onSelect: () => onEdit(alarm) },
             { label: 'Delete', icon: Trash2, danger: true, onSelect: () => onDelete(alarm) },
@@ -85,7 +77,8 @@ const REVEAL = 96; // px the row slides to show its Delete button
 function useSwipeReveal(enabled) {
   const [open, setOpen] = useState(false);
   const [dx, setDx] = useState(null); // live offset while dragging, null when idle
-  const ref = useRef(null);
+  const ref = useRef(null); // the sliding part
+  const rowRef = useRef(null); // the whole row, Delete button included
   const g = useRef(null);
 
   useEffect(() => {
@@ -93,16 +86,7 @@ function useSwipeReveal(enabled) {
   }, [enabled]);
 
   // Tap anywhere else closes an open row.
-  useEffect(() => {
-    if (!open) return undefined;
-    const onDown = (e) => !ref.current?.parentElement?.contains(e.target) && setOpen(false);
-    document.addEventListener('touchstart', onDown, { passive: true });
-    document.addEventListener('mousedown', onDown);
-    return () => {
-      document.removeEventListener('touchstart', onDown);
-      document.removeEventListener('mousedown', onDown);
-    };
-  }, [open]);
+  useDismiss(rowRef, open, () => setOpen(false), { escape: false, touch: true });
 
   const handlers = {
     onTouchStart: (e) => {
@@ -146,6 +130,7 @@ function useSwipeReveal(enabled) {
   return {
     open,
     ref,
+    rowRef,
     handlers,
     close: () => setOpen(false),
     style: offset ? { transform: `translateX(${offset}px)`, transition: dx == null ? undefined : 'none' } : undefined,
@@ -159,18 +144,10 @@ function stop(e) {
 
 function RowMenu({ open, setOpen, label, items, disabled }) {
   const ref = useRef(null);
+  useDismiss(ref, open, () => setOpen(false));
   useEffect(() => {
-    if (!open) return undefined;
-    const onDown = (e) => !ref.current?.contains(e.target) && setOpen(false);
-    const onKey = (e) => e.key === 'Escape' && setOpen(false);
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    ref.current?.querySelector('[role="menuitem"]')?.focus();
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open, setOpen]);
+    if (open) ref.current?.querySelector('[role="menuitem"]')?.focus();
+  }, [open]);
 
   return (
     <div className="row-menu" ref={ref}>
@@ -205,6 +182,23 @@ function RowMenu({ open, setOpen, label, items, disabled }) {
         </div>
       )}
     </div>
+  );
+}
+
+const SNOOZE = [5, 10, 15];
+export const DEFAULT_SNOOZE = 10;
+
+/** Snooze length in minutes. A non-standard value the clock reports stays selectable. */
+export function SnoozeSelect({ label, value, onChange }) {
+  const options = SNOOZE.includes(value) ? SNOOZE : [...SNOOZE, value].sort((a, b) => a - b);
+  return (
+    <SelectField label={label} value={value} onChange={(e) => onChange(Number(e.target.value))}>
+      {options.map((m) => (
+        <option key={m} value={m}>
+          {m} min
+        </option>
+      ))}
+    </SelectField>
   );
 }
 
@@ -248,8 +242,12 @@ export function DayPicker({ value, onChange, labelledBy }) {
 }
 
 /** 24-hour picker: two number fields with steppers, arrow keys and mouse-wheel scroll. */
+const wrap = (v, max) => (v + max) % max;
+
+/** Next multiple of 5 in direction `dir` (+1 / −1): 07 → 10 / 05, 10 → 15 / 05. */
+const snap5 = (m, dir) => (dir > 0 ? m + 5 - (m % 5) : m - (m % 5 || 5));
+
 export function TimePicker({ hour, minute, onChange }) {
-  const wrap = (v, max) => (v + max) % max;
   const setH = (h) => onChange(wrap(h, 24), minute);
   const setM = (m) => onChange(hour, wrap(m, 60));
 
@@ -262,7 +260,7 @@ export function TimePicker({ hour, minute, onChange }) {
       <NumberColumn
         label="Minute"
         value={minute}
-        onStep={(d, big) => setM(big ? (d > 0 ? minute + 5 - (minute % 5) : minute % 5 ? minute - (minute % 5) : minute - 5) : minute + d)}
+        onStep={(d, big) => setM(big ? snap5(minute, d) : minute + d)}
         onSet={(v) => v < 60 && onChange(hour, v)}
         bigStep
       />

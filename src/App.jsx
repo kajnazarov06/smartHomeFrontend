@@ -1,8 +1,8 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { useUser } from './hooks/useAuth';
 import { AppShell } from './components/AppShell';
-import { DeviceCardSkeleton } from './components/device';
-import { Button, LogoMark } from './components/ui';
+import { DeviceGridSkeleton } from './components/device';
+import { AuthLogo, BrandName, Button } from './components/ui';
 import { describeError } from './api/client';
 import { SignIn, SignUp } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
@@ -17,12 +17,7 @@ function RequireAuth() {
   if (isError) {
     return (
       <main className="auth">
-        <div className="auth-logo">
-          <span className="mark">
-            <LogoMark size={30} strokeWidth={1.75} />
-          </span>
-          <div className="t">Smart Home</div>
-        </div>
+        <AuthLogo />
         <div className="card empty" style={{ maxWidth: 400, width: '100%' }}>
           <div>
             <div className="empty-title">Can&apos;t reach the local server</div>
@@ -45,10 +40,7 @@ function BootSkeleton() {
       <header className="topbar">
         <div className="container">
           <span className="brand">
-            <span className="brand-mark">
-              <LogoMark />
-            </span>
-            Smart Home
+            <BrandName />
           </span>
         </div>
       </header>
@@ -56,11 +48,7 @@ function BootSkeleton() {
         <div className="page-head">
           <h1 className="page-title">My devices</h1>
         </div>
-        <div className="grid">
-          <DeviceCardSkeleton />
-          <DeviceCardSkeleton />
-          <DeviceCardSkeleton />
-        </div>
+        <DeviceGridSkeleton />
       </main>
     </>
   );

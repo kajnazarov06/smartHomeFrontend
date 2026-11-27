@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, Outlet, useMatch, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, LogOut, User } from 'lucide-react';
 import { useLogout, useUser } from '../hooks/useAuth';
 import { useRealtime } from '../hooks/useRealtime';
+import { qk } from '../hooks/keys';
 import { useConnection } from '../lib/connection';
+import { useDismiss } from '../lib/useDismiss';
 import { useToast } from './Toast';
-import { LogoMark } from './ui';
+import { BrandName, Spinner } from './ui';
 
 export function AppShell() {
   const { data: user } = useUser();
@@ -15,7 +17,7 @@ export function AppShell() {
 
   useRealtime(user?.id, {
     onAlarmRinging: ({ device_id }) => {
-      const name = qc.getQueryData(['devices'])?.find((d) => d.id === device_id)?.name ?? 'Your clock';
+      const name = qc.getQueryData(qk.devices)?.find((d) => d.id === device_id)?.name ?? 'Your clock';
       toast.info(`${name}: alarm ringing`);
     },
   });
@@ -38,10 +40,7 @@ function TopBar({ user, hideOnPhone }) {
     <header className={`topbar ${hideOnPhone ? 'hide-m' : ''}`}>
       <div className="container">
         <Link to="/" className="brand">
-          <span className="brand-mark">
-            <LogoMark />
-          </span>
-          Smart Home
+          <BrandName />
         </Link>
         {user && <UserMenu user={user} />}
       </div>
@@ -56,22 +55,10 @@ function UserMenu({ user }) {
   const navigate = useNavigate();
   const who = user.email || user.username || 'Account';
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const onDown = (e) => !ref.current?.contains(e.target) && setOpen(false);
-    const onKey = (e) => {
-      if (e.key === 'Escape') {
-        setOpen(false);
-        ref.current?.querySelector('button')?.focus();
-      }
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+  useDismiss(ref, open, (reason) => {
+    setOpen(false);
+    if (reason === 'escape') ref.current?.querySelector('button')?.focus();
+  });
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -120,7 +107,7 @@ export function ConnectionBanner({ flush = false }) {
   if (server) return null;
   return (
     <div className={`conn-banner ${flush ? 'flush-m' : ''}`} role="alert">
-      <span className="spinner" aria-hidden="true" />
+      <Spinner />
       Can&apos;t reach the local server. Reconnecting…
     </div>
   );

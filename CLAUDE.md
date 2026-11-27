@@ -68,21 +68,25 @@ Add device flow; its pairing code is printed in `docker logs fake-clock`.
 | --- | --- |
 | `api/client.js` | axios instance, `ApiError {status, code, errors, data, retryAfter}`, `describeError()` (maps backend `code`s to user text), connection reporting |
 | `api/endpoints.js` | One function per backend route. Unwraps Laravel `{data: …}` |
+| `hooks/keys.js` | `qk`: every query key. Never write a key literal elsewhere |
 | `hooks/useAuth.js` | `useUser` (`['user']`, null when signed out), `useAuthStatus`, `useLogin`, `useRegister`, `useLogout` |
 | `hooks/useDevices.js` | `useDevices`, `useDevice`, rename/settings/remove mutations, `patchDeviceCache`, `storeDevice` |
-| `hooks/useAlarms.js` | `useAlarms` → `{alarms, stale}`, optimistic create/update/delete with rollback |
+| `hooks/useAlarms.js` | `useAlarms` → `{alarms, stale}`, optimistic create/update/delete with rollback, `MAX_ALARMS` |
 | `hooks/useReadings.js` | `useReadings(id, '24h' \| '7d')` → `[{t, temperature, humidity}]` |
+| `hooks/usePairing.js` | Add device: `useScan` (start + poll fallback, `SCAN_TIMEOUT`), `useProbe`, `usePairStart`, `usePairConfirm` |
 | `hooks/useRealtime.js` | Echo `private-users.{id}` → writes into the query cache |
 | `lib/connection.js` | Store for server reachability (+ `/up` probe while down) and socket state (`useConnection`) |
 | `lib/echo.js` | Laravel Echo (Reverb) on the page's own host/port. Private-channel auth via axios to `/api/broadcasting/auth` |
 | `lib/format.js` | Clock/date in device tz, `describeDays`, `rssiToBars`, `timeAgo`, countdowns, `describeNextAlarm` |
 | `lib/useNow.js` | One shared 1 s ticker for every clock and countdown |
-| `components/ui.jsx` | Button (variants + `loading`), IconButton, Toggle (`role="switch"`), TextField, SelectField, StatusBadge, WifiIndicator, FadeValue, Skeleton |
+| `lib/useDismiss.js` | Close a menu/popover on outside press or Escape |
+| `lib/deviceName.js` | `DEVICE_NAME_MAX`, `deviceNameError()`: the device-name rule |
+| `components/ui.jsx` | Button (variants + `loading`), IconButton, Toggle (`role="switch"`), TextField, SelectField, StatusBadge, WifiIndicator, FadeValue, Skeleton, Spinner, Banner (`tone` error/warn/info), BrandName, AuthLogo |
 | `components/Modal.jsx` | Modal (bottom sheet < 768 px), SidePanel, ConfirmDialog. Escape, focus trap, focus restore |
-| `components/Toast.jsx` | `useToast()` → `success/error/info(msg, {retry})`. Success hides after 3 s |
-| `components/device.jsx` | ClockDisplay, SensorTile, DeviceCard (+ skeleton), `sensorsOf`, `hasCap` |
+| `components/Toast.jsx` | `useToast()` → `success/error/info(msg, {retry})`. Success hides after 3 s. `useToastMutate()` → `run(mutation, vars, {action, success, onSuccess, onError})`: error toast "Couldn't {action} — …" with Retry |
+| `components/device.jsx` | ClockDisplay, SensorTile, DeviceCard (+ skeleton, DeviceGridSkeleton), `sensorsOf`, `sensorValue`, `hasCap` |
 | `components/HistoryChart.jsx` | Recharts, two Y axes, 24 h / 7 d tabs, empty + skeleton states |
-| `components/alarms.jsx` | AlarmRow (+ row menu), DayPicker (ISO days + presets), TimePicker (24 h, arrows/wheel/typing) |
+| `components/alarms.jsx` | AlarmRow (+ row menu, swipe to delete), DayPicker (ISO days + presets), TimePicker (24 h, arrows/wheel/typing), SnoozeSelect, `DEFAULT_SNOOZE` |
 | `components/PairingCodeInput.jsx` | 6 boxes: auto-advance, backspace, arrows, paste/autofill |
 | `components/AppShell.jsx` | TopBar, UserMenu, ConnectionBanner. Mounts `useRealtime` |
 | `pages/` | `Auth` (SignIn/SignUp), `Dashboard`, `AddDevice` (nested route modal), `DeviceDetail`, `AlarmEditor`, `DeviceSettings` |
@@ -102,10 +106,14 @@ Settings and the alarm editor are local state inside Device detail, not routes.
 - **Live data:** Echo events update the cache (`setQueryData`). Don't refetch on each push. Polling (15 s) only
   runs while the socket isn't `connected`. Event names have a leading dot: `.device.state`, `.device.status`,
   `.discovery.finished`, `.alarm.ringing`.
-- **Generic devices:** render from `type` + `capabilities` (`sensorsOf`, `hasCap`), never hard-code "clock".
+- **Generic devices:** render from `type` + `capabilities` (`sensorsOf`, `sensorValue`, `hasCap`), never hard-code "clock"
+  or a state field name.
+- **Mutations with toasts:** use `useToastMutate()` from a component that stays mounted until the request
+  settles (TanStack drops `mutate()` callbacks of an unmounted component). That's why the alarm editor hands
+  delete to the alarms card via `onDelete`.
 - **Errors:** branch on `err.code` (`device_unreachable`, `device_unauthorized`, `device_rejected`,
   `invalid_pairing_code` + `data.attempts_left`, `pairing_locked` + `retryAfter`, `unsupported_device_type`) and on
-  422 `err.errors`. Show user text via `describeError()`.
+  422 `err.errors` (`fieldErrors(err)` → `{field: first message}`). Show user text via `describeError()`.
 - **Alarms:** offline-first. The backend DB is the source of truth for user changes. A write to an unreachable
   clock answers 202 and stays `sync_status: pending` until the clock is back. Writes are optimistic and roll back
   on error with an error toast + Retry. Alarms stay editable when the device is offline or `meta.stale`. Max 10 alarms. `days` are ISO weekdays

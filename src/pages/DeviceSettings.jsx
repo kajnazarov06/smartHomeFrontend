@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { Sun, SunDim, Trash2 } from 'lucide-react';
 import { useRemoveDevice, useUpdateSettings } from '../hooks/useDevices';
 import { useAlarms } from '../hooks/useAlarms';
-import { describeError } from '../api/client';
+import { describeError, fieldErrors } from '../api/client';
 import { utcOffsetLabel } from '../lib/format';
+import { DEVICE_NAME_MAX, deviceNameError } from '../lib/deviceName';
 import { ConfirmDialog, SidePanel } from '../components/Modal';
-import { Button, SelectField, TextField } from '../components/ui';
-import { useToast } from '../components/Toast';
-
-const SNOOZE = [5, 10, 15];
+import { DEFAULT_SNOOZE, SnoozeSelect } from '../components/alarms';
+import { Banner, Button, SelectField, TextField } from '../components/ui';
+import { useToast, useToastMutate } from '../components/Toast';
 
 function timeZones(current) {
   let zones = [];
@@ -25,6 +25,7 @@ function timeZones(current) {
 export function DeviceSettings({ device, onClose }) {
   const navigate = useNavigate();
   const toast = useToast();
+  const run = useToastMutate();
   const update = useUpdateSettings(device.id);
   const remove = useRemoveDevice(device.id);
   const { data: alarmData } = useAlarms(device.id);
@@ -34,7 +35,7 @@ export function DeviceSettings({ device, onClose }) {
     name: device.name,
     tz: device.settings?.tz || device.state?.tz || browserTz,
     brightness: device.settings?.brightness ?? 70,
-    snooze_min: device.settings?.snooze_min ?? 10,
+    snooze_min: device.settings?.snooze_min ?? DEFAULT_SNOOZE,
   };
   const [form, setForm] = useState(initial);
   const [nameError, setNameError] = useState(null);
@@ -42,13 +43,13 @@ export function DeviceSettings({ device, onClose }) {
   const [unreachable, setUnreachable] = useState(false);
 
   const zones = useMemo(() => timeZones(form.tz), [form.tz]);
-  const snoozeOptions = SNOOZE.includes(form.snooze_min) ? SNOOZE : [...SNOOZE, form.snooze_min].sort((a, b) => a - b);
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === 'range' || k === 'snooze_min' ? Number(e.target.value) : e.target.value });
+  const set = (k, parse = (v) => v) => (e) => setForm({ ...form, [k]: parse(e.target.value) });
 
   const save = () => {
     const name = form.name.trim();
-    if (!name) {
-      setNameError('Give your clock a name.');
+    const invalid = deviceNameError(name);
+    if (invalid) {
+      setNameError(invalid);
       return;
     }
     // Send only what changed; the device must accept it.
@@ -57,14 +58,12 @@ export function DeviceSettings({ device, onClose }) {
     for (const k of ['tz', 'brightness', 'snooze_min']) if (form[k] !== initial[k]) patch[k] = form[k];
     if (!Object.keys(patch).length) return onClose();
 
-    update.mutate(patch, {
-      onSuccess: () => {
-        toast.success('Settings saved');
-        onClose();
-      },
+    run(update, patch, {
+      action: 'save settings',
+      success: 'Settings saved',
+      onSuccess: onClose,
       onError: (err) => {
-        if (err.status === 422 && err.errors?.name) setNameError(err.errors.name[0]);
-        toast.error(`Couldn't save settings — ${describeError(err)}`, { retry: save });
+        if (fieldErrors(err).name) setNameError(fieldErrors(err).name);
       },
     });
   };
@@ -104,14 +103,12 @@ export function DeviceSettings({ device, onClose }) {
       }
     >
       {!device.online && (
-        <div className="banner banner-info">
-          <span>The clock is offline. Settings can be saved once it&apos;s back online.</span>
-        </div>
+        <Banner tone="info">The clock is offline. Settings can be saved once it&apos;s back online.</Banner>
       )}
       <TextField
         label="Name"
         value={form.name}
-        maxLength={64}
+        maxLength={DEVICE_NAME_MAX}
         onChange={(e) => {
           set('name')(e);
           setNameError(null);
@@ -144,19 +141,13 @@ export function DeviceSettings({ device, onClose }) {
             max="100"
             step="5"
             value={form.brightness}
-            onChange={set('brightness')}
+            onChange={set('brightness', Number)}
             aria-valuetext={`${form.brightness}%`}
           />
           <Sun size={20} color="var(--text-2)" aria-hidden="true" />
         </div>
       </div>
-      <SelectField label="Default snooze" value={form.snooze_min} onChange={set('snooze_min')}>
-        {snoozeOptions.map((m) => (
-          <option key={m} value={m}>
-            {m} min
-          </option>
-        ))}
-      </SelectField>
+      <SnoozeSelect label="Default snooze" value={form.snooze_min} onChange={(v) => setForm({ ...form, snooze_min: v })} />
 
       <section className="danger-zone" aria-labelledby="st-danger">
         <h2 id="st-danger">Danger zone</h2>

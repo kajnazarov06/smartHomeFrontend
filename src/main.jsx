@@ -11,6 +11,7 @@ import { App } from './App';
 import { ToastProvider } from './components/Toast';
 import { onUnauthorized } from './api/client';
 import { disconnectEcho } from './lib/echo';
+import { qk } from './hooks/keys';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,7 +28,7 @@ const queryClient = new QueryClient({
 // Session expired anywhere → back to sign-in.
 onUnauthorized(() => {
   disconnectEcho();
-  queryClient.setQueryData(['user'], null);
+  queryClient.setQueryData(qk.user, null);
 });
 
 createRoot(document.getElementById('root')).render(

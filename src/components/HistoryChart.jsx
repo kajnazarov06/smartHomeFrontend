@@ -40,10 +40,11 @@ function domainFor(points, key, pad, step) {
   return [lo, hi === lo ? lo + step : hi];
 }
 
-export function HistoryChart({ points, range, onRangeChange, loading, showTemp = true, showHum = true }) {
+/** Render HistoryChartSkeleton until the first points arrive; range switches keep the previous points. */
+export function HistoryChart({ points, range, onRangeChange, showTemp = true, showHum = true }) {
   const tempDomain = useMemo(() => domainFor(points ?? [], 'temperature', 0.5, 2), [points]);
   const humDomain = useMemo(() => domainFor(points ?? [], 'humidity', 2, 10), [points]);
-  const empty = !loading && (!points || points.length < 2);
+  const empty = !points || points.length < 2;
 
   const summary = useMemo(() => {
     if (!points?.length) return 'No history yet';
@@ -90,9 +91,7 @@ export function HistoryChart({ points, range, onRangeChange, loading, showTemp =
       </div>
 
       <div className="chart-box" role="img" aria-label={summary}>
-        {loading && !points ? (
-          <Skeleton height="100%" radius={12} />
-        ) : empty ? (
+        {empty ? (
           <div className="chart-empty">
             <div className="line" />
             <div className="line" />
@@ -169,7 +168,7 @@ export function HistoryChart({ points, range, onRangeChange, loading, showTemp =
           </ResponsiveContainer>
         )}
       </div>
-      {!empty && points && <p className="chart-hint show-m">Tap the chart to see values.</p>}
+      {!empty && <p className="chart-hint show-m">Tap the chart to see values.</p>}
     </section>
   );
 }

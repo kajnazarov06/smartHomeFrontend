@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle } from 'lucide-react';
 import { useAuthStatus, useLogin, useRegister, useUser } from '../hooks/useAuth';
-import { describeError } from '../api/client';
-import { Button, LogoMark, TextField } from '../components/ui';
+import { describeError, fieldErrors as toFieldErrors } from '../api/client';
+import { AuthLogo, Banner, Button, TextField } from '../components/ui';
 import { ConnectionBanner } from '../components/AppShell';
 
 function AuthLayout({ children }) {
@@ -11,28 +10,12 @@ function AuthLayout({ children }) {
     <>
       <ConnectionBanner />
       <main className="auth">
-        <div className="auth-logo">
-          <span className="mark">
-            <LogoMark size={30} strokeWidth={1.75} />
-          </span>
-          <div className="t">Smart Home</div>
-        </div>
+        <AuthLogo />
         {children}
       </main>
     </>
   );
 }
-
-function ErrorBanner({ children }) {
-  return (
-    <div className="banner banner-error" role="alert">
-      <AlertCircle size={18} aria-hidden="true" />
-      <span>{children}</span>
-    </div>
-  );
-}
-
-const first = (errors, key) => (Array.isArray(errors?.[key]) ? errors[key][0] : errors?.[key]);
 
 export function SignIn() {
   const { data: user } = useUser();
@@ -63,10 +46,11 @@ export function SignIn() {
         onSuccess: () => navigate(location.state?.from || '/', { replace: true }),
         onError: (err) => {
           if (err.status === 422 || err.status === 429) {
-            const msg = first(err.errors, 'login');
+            const errs = toFieldErrors(err);
+            const msg = errs.login;
             if (err.status === 429) setBanner(msg || 'Too many attempts. Wait a minute and try again.');
             else if (msg) setBanner('Email or password is incorrect. Check them and try again.');
-            else setFieldErrors(Object.fromEntries(Object.keys(err.errors).map((k) => [k, first(err.errors, k)])));
+            else setFieldErrors(errs);
           } else {
             setBanner(describeError(err, "Couldn't sign in"));
           }
@@ -82,7 +66,7 @@ export function SignIn() {
           <h1>Sign in</h1>
           <p className="sub">Control your clocks on this network.</p>
         </div>
-        {banner && <ErrorBanner>{banner}</ErrorBanner>}
+        {banner && <Banner>{banner}</Banner>}
         <TextField
           label="Email or username"
           autoComplete="username"
@@ -147,7 +131,7 @@ export function SignUp() {
         onSuccess: () => navigate('/', { replace: true }),
         onError: (err) => {
           if (err.status === 422) {
-            setErrors(Object.fromEntries(Object.keys(err.errors).map((k) => [k, first(err.errors, k)])));
+            setErrors(toFieldErrors(err));
           } else {
             setBanner(describeError(err, "Couldn't create the account"));
           }
@@ -167,8 +151,8 @@ export function SignUp() {
               : 'One account for every clock in your home.'}
           </p>
         </div>
-        {closed && <ErrorBanner>Registration is closed. Ask the owner of this app to sign you in.</ErrorBanner>}
-        {banner && <ErrorBanner>{banner}</ErrorBanner>}
+        {closed && <Banner>Registration is closed. Ask the owner of this app to sign you in.</Banner>}
+        {banner && <Banner>{banner}</Banner>}
         <TextField label="Email" type="email" autoComplete="email" value={form.email} onChange={set('email')} error={errors.email} autoFocus />
         <TextField
           label="Password"

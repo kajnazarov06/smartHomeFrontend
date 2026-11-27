@@ -102,12 +102,13 @@ describe('AlarmEditor — editing', () => {
     });
   });
 
-  it('deletes and closes', async () => {
-    const { onClose } = setup({ alarm });
-    api.deleteAlarm.mockResolvedValue({});
+  it('closes and hands the delete to the parent', async () => {
+    const onDelete = vi.fn();
+    const { onClose } = setup({ alarm, onDelete });
     await userEvent.click(screen.getByRole('button', { name: 'Delete alarm' }));
     expect(onClose).toHaveBeenCalled();
-    expect(api.deleteAlarm).toHaveBeenCalledWith('clk-1', 3);
+    expect(onDelete).toHaveBeenCalledWith(alarm);
+    expect(api.deleteAlarm).not.toHaveBeenCalled();
   });
 
   it('closes on Cancel', async () => {

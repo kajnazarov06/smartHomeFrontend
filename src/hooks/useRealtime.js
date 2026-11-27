@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getEcho } from '../lib/echo';
 import { connection } from '../lib/connection';
 import { patchDeviceCache } from './useDevices';
+import { qk } from './keys';
 
 /**
  * Subscribes to `private-users.{id}` and writes pushed values straight into the
@@ -36,10 +37,10 @@ export function useRealtime(userId, { onAlarmRinging } = {}) {
       .listen('.device.status', ({ device_id, online, last_seen_at }) => {
         patchDeviceCache(qc, device_id, (d) => ({ ...d, online, last_seen_at: last_seen_at ?? d.last_seen_at }));
         // Alarms come back from cache (stale) while offline; refresh when the clock returns.
-        if (online) qc.invalidateQueries({ queryKey: ['alarms', device_id] });
+        if (online) qc.invalidateQueries({ queryKey: qk.alarms(device_id) });
       })
       .listen('.discovery.finished', ({ devices }) => {
-        qc.setQueryData(['discovery'], (prev) => ({
+        qc.setQueryData(qk.discovery, (prev) => ({
           ...(prev ?? {}),
           data: devices ?? [],
           scanned_at: new Date().toISOString(),

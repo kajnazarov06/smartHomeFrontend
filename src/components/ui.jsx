@@ -1,5 +1,5 @@
 import { forwardRef, useId } from 'react';
-import { Clock3 } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Clock3 } from 'lucide-react';
 
 export function Spinner({ className = '' }) {
   return <span className={`spinner ${className}`} aria-hidden="true" />;
@@ -147,4 +147,41 @@ export function Skeleton({ width, height, radius, style, className = '' }) {
 
 export function LogoMark({ size = 18, strokeWidth = 2 }) {
   return <Clock3 size={size} strokeWidth={strokeWidth} aria-hidden="true" />;
+}
+
+/** Logo + "Smart Home" for the top bar; wrap it in a Link or a span with class `brand`. */
+export function BrandName() {
+  return (
+    <>
+      <span className="brand-mark">
+        <LogoMark />
+      </span>
+      Smart Home
+    </>
+  );
+}
+
+/** Large logo above the sign-in / sign-up / boot-error cards. */
+export function AuthLogo() {
+  return (
+    <div className="auth-logo">
+      <span className="mark">
+        <LogoMark size={30} strokeWidth={1.75} />
+      </span>
+      <div className="t">Smart Home</div>
+    </div>
+  );
+}
+
+const BANNER_ICON = { error: AlertCircle, warn: AlertTriangle };
+
+/** tone: error | warn | info. Error and warn are announced (role="alert"). */
+export function Banner({ tone = 'error', children }) {
+  const Icon = BANNER_ICON[tone];
+  return (
+    <div className={`banner banner-${tone}`} role={Icon ? 'alert' : undefined}>
+      {Icon && <Icon size={18} aria-hidden="true" />}
+      <span>{children}</span>
+    </div>
+  );
 }

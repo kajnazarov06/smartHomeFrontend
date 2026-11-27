@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Info, X } from 'lucide-react';
+import { describeError } from '../api/client';
 
 const ToastContext = createContext(null);
 const DURATION = { success: 3000, info: 5000, error: 8000 };
@@ -72,4 +73,31 @@ export function ToastProvider({ children }) {
 
 export function useToast() {
   return useContext(ToastContext);
+}
+
+/**
+ * `run(mutation, vars, { action, success, onSuccess, onError })` calls `mutation.mutate(vars)`.
+ * On error it toasts "Couldn't {action} — {reason}" with a Retry that repeats the same call, callbacks included.
+ * On success it toasts `success` (if given). Run it from a component that stays mounted until the request
+ * settles: TanStack drops mutate() callbacks of an unmounted component.
+ */
+export function useToastMutate() {
+  const toast = useToast();
+  return useCallback(
+    (mutation, vars, { action, success, onSuccess, onError } = {}) => {
+      const run = () =>
+        mutation.mutate(vars, {
+          onSuccess: (...args) => {
+            if (success) toast.success(success);
+            onSuccess?.(...args);
+          },
+          onError: (err, ...args) => {
+            toast.error(`Couldn't ${action} — ${describeError(err)}`, { retry: run });
+            onError?.(err, ...args);
+          },
+        });
+      run();
+    },
+    [toast],
+  );
 }
